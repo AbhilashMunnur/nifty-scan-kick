@@ -1,0 +1,36 @@
+name: Kick Nifty IST slots
+
+# Public repo so these waits do not use nifty-index-trade's 2,000 free minutes.
+# GitHub schedule here is only a morning starter; the job then self-chains
+# every 15 minutes until 15:40 IST.
+on:
+  workflow_dispatch:
+  repository_dispatch:
+    types: [nifty-kick]
+  schedule:
+    # 08:50–09:05 IST (03:20–03:35 UTC) weekdays
+    - cron: "20,25,30,35 3 * * 1-5"
+    # 09:20–09:38 IST (03:50–04:08 UTC)
+    - cron: "50,55 3 * * 1-5"
+    - cron: "0,2,5,8 4 * * 1-5"
+    # Hourly backup during the session
+    - cron: "0 5-10 * * 1-5"
+
+concurrency:
+  group: nifty-slot-kick
+  cancel-in-progress: false
+
+jobs:
+  kick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    env:
+      TZ: Asia/Kolkata
+      GH_TOKEN: ${{ secrets.NIFTY_DISPATCH_TOKEN }}
+      TARGET_REPO: AbhilashMunnur/nifty-index-trade
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Wait for slot, dispatch Nifty, chain
+        run: python3 -u kick.py
