@@ -2,7 +2,7 @@ name: Kick Nifty IST slots
 
 # Public repo so these waits do not use nifty-index-trade's 2,000 free minutes.
 # GitHub schedule here is only a morning starter; the job then self-chains
-# every 15 minutes until 15:40 IST.
+# every 30 minutes until 15:40 IST, then overnight until the next 09:30.
 on:
   workflow_dispatch:
   repository_dispatch:
@@ -18,7 +18,7 @@ on:
 
 concurrency:
   group: nifty-slot-kick
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   kick:

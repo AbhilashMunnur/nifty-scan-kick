@@ -19,7 +19,7 @@ from zoneinfo import ZoneInfo
 IST = ZoneInfo("Asia/Kolkata")
 TARGET = os.environ.get("TARGET_REPO", "AbhilashMunnur/nifty-index-trade")
 SELF = os.environ.get("GITHUB_REPOSITORY", "AbhilashMunnur/nifty-scan-kick")
-GRACE_SECONDS = 25
+GRACE_SECONDS = 90
 # GitHub-hosted jobs die at 6 hours. Stay under that.
 MAX_SLEEP_SECONDS = 5 * 60 * 60
 
@@ -60,13 +60,13 @@ def iter_slots(day: datetime) -> list[datetime]:
     last_regular = day.replace(hour=15, minute=30, second=0, microsecond=0)
     while cursor <= last_regular:
         slots.append(cursor)
-        cursor += timedelta(minutes=15)
+        cursor += timedelta(minutes=30)
     slots.append(day.replace(hour=15, minute=40, second=0, microsecond=0))
     return slots
 
 
 def next_slot(now: datetime | None = None) -> datetime | None:
-    """Next 15-minute slot, including the following trading days (weekends/holidays)."""
+    """Next 30-minute slot, including the following trading days (weekends/holidays)."""
     current = now if now is not None else now_ist()
     cutoff = current - timedelta(seconds=GRACE_SECONDS)
     for offset in range(0, 12):
