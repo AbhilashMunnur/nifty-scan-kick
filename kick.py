@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Wait for the next NSE slot on a public runner (free minutes), then kick Nifty.
 
-GitHub's schedule on a private repo is often skipped for a whole morning.
-This job sleeps until 09:30 / 09:45 / … / 15:40 IST, POSTs nifty-scan, then
-starts the next wait. Sleep time is billed on this public repo, not the
-2,000-minute private cap.
+Never stop at 15:40. After the last slot, hop in ≤5-hour sleeps until the next
+trading day's 09:30. GitHub jobs time out at 6 hours, so overnight is several
+public jobs. That is what starts Wednesday/Thursday mornings — GitHub's own
+schedule is often skipped on both private and public repos.
 """
 
 from __future__ import annotations
@@ -12,14 +12,16 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
-from datetime import date, datetime, timedelta, time
+import time
+from datetime import date, datetime, timedelta, time as clock
 from zoneinfo import ZoneInfo
 
 IST = ZoneInfo("Asia/Kolkata")
 TARGET = os.environ.get("TARGET_REPO", "AbhilashMunnur/nifty-index-trade")
 SELF = os.environ.get("GITHUB_REPOSITORY", "AbhilashMunnur/nifty-scan-kick")
-# Treat a slot as still "now" for this many seconds after it starts.
 GRACE_SECONDS = 25
+# GitHub-hosted jobs die at 6 hours. Stay under that.
+MAX_SLEEP_SECONDS = 5 * 60 * 60
 
 NSE_HOLIDAYS = {
     "2026-01-15",
@@ -64,47 +66,72 @@ def iter_slots(day: datetime) -> list[datetime]:
 
 
 def next_slot(now: datetime | None = None) -> datetime | None:
+    """Next 15-minute slot, including the following trading days (weekends/holidays)."""
     current = now if now is not None else now_ist()
-    if not is_trading_day(current.date()):
-        return None
     cutoff = current - timedelta(seconds=GRACE_SECONDS)
-    for slot in iter_slots(current):
-        if slot > cutoff:
-            return slot
+    for offset in range(0, 12):
+        day = current.date() + timedelta(days=offset)
+        if not is_trading_day(day):
+            continue
+        midnight = datetime.combine(day, clock.min, tzinfo=IST)
+        for slot in iter_slots(midnight):
+            if slot > cutoff:
+                return slot
     return None
 
 
-def gh(*args: str) -> None:
-    subprocess.check_call(["gh", "api", "--method", "POST", *args])
+def chain() -> None:
+    subprocess.check_call(
+        [
+            "gh",
+            "api",
+            "--method",
+            "POST",
+            f"repos/{SELF}/actions/workflows/kick.yml/dispatches",
+            "-f",
+            "ref=main",
+        ]
+    )
+
+
+def dispatch_nifty() -> None:
+    subprocess.check_call(
+        [
+            "gh",
+            "api",
+            "--method",
+            "POST",
+            f"repos/{TARGET}/dispatches",
+            "-f",
+            "event_type=nifty-scan",
+        ]
+    )
 
 
 def main() -> int:
     slot = next_slot()
     if slot is None:
-        print("No remaining NSE slot today — stop.")
+        print("No NSE slot in the next 12 days — retry in 5 hours.")
+        time.sleep(MAX_SLEEP_SECONDS)
+        chain()
         return 0
 
     wait = max(0, int((slot - now_ist()).total_seconds()))
     print(f"Target {slot:%Y-%m-%d %H:%M} IST  wait={wait}s")
-    if wait > 0:
-        import time
 
+    if wait > MAX_SLEEP_SECONDS:
+        print(f"Sleeping {MAX_SLEEP_SECONDS}s then continuing the wait.")
+        time.sleep(MAX_SLEEP_SECONDS)
+        chain()
+        return 0
+
+    if wait > 0:
         time.sleep(wait)
 
     print(f"Dispatching nifty-scan on {TARGET} for {slot:%H:%M} IST")
-    gh(f"repos/{TARGET}/dispatches", "-f", "event_type=nifty-scan")
-
-    nxt = next_slot(slot + timedelta(seconds=30))
-    if nxt is None:
-        print("Last slot of the day dispatched.")
-        return 0
-
-    print(f"Chaining public kicker for {nxt:%H:%M} IST")
-    gh(
-        f"repos/{SELF}/actions/workflows/kick.yml/dispatches",
-        "-f",
-        "ref=main",
-    )
+    dispatch_nifty()
+    print(f"Chaining public kicker after {slot:%H:%M} IST")
+    chain()
     return 0
 
 

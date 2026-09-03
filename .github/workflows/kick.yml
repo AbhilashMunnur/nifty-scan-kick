@@ -23,7 +23,7 @@ concurrency:
 jobs:
   kick:
     runs-on: ubuntu-latest
-    timeout-minutes: 22
+    timeout-minutes: 360
     env:
       TZ: Asia/Kolkata
       GH_TOKEN: ${{ secrets.NIFTY_DISPATCH_TOKEN }}
