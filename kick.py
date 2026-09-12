@@ -60,13 +60,13 @@ def iter_slots(day: datetime) -> list[datetime]:
     last_regular = day.replace(hour=15, minute=30, second=0, microsecond=0)
     while cursor <= last_regular:
         slots.append(cursor)
-        cursor += timedelta(minutes=30)
+        cursor += timedelta(minutes=15)
     slots.append(day.replace(hour=15, minute=40, second=0, microsecond=0))
     return slots
 
 
 def next_slot(now: datetime | None = None) -> datetime | None:
-    """Next 30-minute slot, including the following trading days (weekends/holidays)."""
+    """Next 15-minute slot, including the following trading days (weekends/holidays)."""
     current = now if now is not None else now_ist()
     cutoff = current - timedelta(seconds=GRACE_SECONDS)
     for offset in range(0, 12):
