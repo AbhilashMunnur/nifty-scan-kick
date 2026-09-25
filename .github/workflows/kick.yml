@@ -28,7 +28,6 @@ jobs:
     env:
       TZ: Asia/Kolkata
       GH_TOKEN: ${{ secrets.NIFTY_DISPATCH_TOKEN }}
-      TARGET_REPO: AbhilashMunnur/nifty-index-scan
     steps:
       - uses: actions/checkout@v4
         with:

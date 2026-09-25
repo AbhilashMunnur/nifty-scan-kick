@@ -1,6 +1,6 @@
 # nifty-scan-kick
 
-Public kicker for the [nifty-index-scan](https://github.com/AbhilashMunnur/nifty-index-scan) scanner.
+Public kicker for the scanner. Until 1 Oct 2026, 5:30 AM IST it dispatches the public [nifty-index-scan](https://github.com/AbhilashMunnur/nifty-index-scan) repo. After the private Actions minutes reset, it dispatches [nifty-index-trade](https://github.com/AbhilashMunnur/nifty-index-trade) again.
 
 GitHub’s own `schedule` often skips a whole morning. This workflow sleeps until
 each slot, then dispatches `nifty-scan`. Tuesday and Thursday are every 15

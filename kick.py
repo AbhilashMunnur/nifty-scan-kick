@@ -20,7 +20,11 @@ from datetime import date, datetime, timedelta, time as clock
 from zoneinfo import ZoneInfo
 
 IST = ZoneInfo("Asia/Kolkata")
-TARGET = os.environ.get("TARGET_REPO", "AbhilashMunnur/nifty-index-scan")
+UTC = ZoneInfo("UTC")
+# Included private Actions minutes reset at 00:00 UTC on the 1st (05:30 IST).
+PRIVATE_RESUME = datetime(2026, 10, 1, 0, 0, tzinfo=UTC)
+PUBLIC_REPO = "AbhilashMunnur/nifty-index-scan"
+PRIVATE_REPO = "AbhilashMunnur/nifty-index-trade"
 SELF = os.environ.get("GITHUB_REPOSITORY", "AbhilashMunnur/nifty-scan-kick")
 GRACE_SECONDS = 90
 # GitHub-hosted jobs die at 6 hours. Stay under that.
@@ -48,6 +52,18 @@ NSE_HOLIDAYS = {
 
 def now_ist() -> datetime:
     return datetime.now(IST)
+
+
+def target_repo(now: datetime | None = None) -> str:
+    """Public copy until the private minute quota resets, then the old repo."""
+    current = now if now is not None else datetime.now(UTC)
+    if current.tzinfo is None:
+        current = current.replace(tzinfo=UTC)
+    else:
+        current = current.astimezone(UTC)
+    if current >= PRIVATE_RESUME:
+        return PRIVATE_REPO
+    return PUBLIC_REPO
 
 
 def is_trading_day(as_of: date) -> bool:
@@ -105,14 +121,14 @@ def chain() -> None:
     )
 
 
-def dispatch_nifty() -> None:
+def dispatch_nifty(repo: str) -> None:
     subprocess.check_call(
         [
             "gh",
             "api",
             "--method",
             "POST",
-            f"repos/{TARGET}/dispatches",
+            f"repos/{repo}/dispatches",
             "-f",
             "event_type=nifty-scan",
         ]
@@ -139,8 +155,9 @@ def main() -> int:
     if wait > 0:
         time.sleep(wait)
 
-    print(f"Dispatching nifty-scan on {TARGET} for {slot:%H:%M} IST")
-    dispatch_nifty()
+    repo = target_repo()
+    print(f"Dispatching nifty-scan on {repo} for {slot:%H:%M} IST")
+    dispatch_nifty(repo)
     print(f"Chaining public kicker after {slot:%H:%M} IST")
     chain()
     return 0
