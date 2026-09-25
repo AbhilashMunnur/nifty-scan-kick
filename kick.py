@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
-"""Wait for the next NSE slot on a public runner (free minutes), then kick Nifty.
+"""Wait for the next NSE slot on a public runner (free minutes), then kick the scan.
+
+Tuesday and Thursday: every 15 minutes, including 15:10 and 15:15.
+Monday, Wednesday, and Friday: every 30 minutes. No 15:10 or 15:15.
+Every weekday ends with the 15:40 close scan.
 
 Never stop at 15:40. After the last slot, hop in ≤5-hour sleeps until the next
 trading day's 09:30. GitHub jobs time out at 6 hours, so overnight is several
-public jobs. That is what starts Wednesday/Thursday mornings — GitHub's own
-schedule is often skipped on both private and public repos.
+public jobs. GitHub's own schedule is often skipped, so this chain is the clock.
 """
 
 from __future__ import annotations
@@ -17,7 +20,7 @@ from datetime import date, datetime, timedelta, time as clock
 from zoneinfo import ZoneInfo
 
 IST = ZoneInfo("Asia/Kolkata")
-TARGET = os.environ.get("TARGET_REPO", "AbhilashMunnur/nifty-index-trade")
+TARGET = os.environ.get("TARGET_REPO", "AbhilashMunnur/nifty-index-scan")
 SELF = os.environ.get("GITHUB_REPOSITORY", "AbhilashMunnur/nifty-scan-kick")
 GRACE_SECONDS = 90
 # GitHub-hosted jobs die at 6 hours. Stay under that.
@@ -53,20 +56,28 @@ def is_trading_day(as_of: date) -> bool:
     return as_of.isoformat() not in NSE_HOLIDAYS
 
 
+def is_quarter_hour_day(as_of: date) -> bool:
+    """Tuesday and Thursday keep the 15-minute grid, including 15:10 and 15:15."""
+    return as_of.weekday() in (1, 3)
+
+
 def iter_slots(day: datetime) -> list[datetime]:
     day = day.astimezone(IST)
+    step = 15 if is_quarter_hour_day(day.date()) else 30
     slots: list[datetime] = []
     cursor = day.replace(hour=9, minute=30, second=0, microsecond=0)
     last_regular = day.replace(hour=15, minute=30, second=0, microsecond=0)
     while cursor <= last_regular:
         slots.append(cursor)
-        cursor += timedelta(minutes=15)
+        if step == 15 and cursor.time() == clock(15, 0):
+            slots.append(day.replace(hour=15, minute=10, second=0, microsecond=0))
+        cursor += timedelta(minutes=step)
     slots.append(day.replace(hour=15, minute=40, second=0, microsecond=0))
     return slots
 
 
 def next_slot(now: datetime | None = None) -> datetime | None:
-    """Next 15-minute slot, including the following trading days (weekends/holidays)."""
+    """Next unpaid grid slot, including the following trading days."""
     current = now if now is not None else now_ist()
     cutoff = current - timedelta(seconds=GRACE_SECONDS)
     for offset in range(0, 12):

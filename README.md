@@ -1,8 +1,10 @@
 # nifty-scan-kick
 
-Public kicker for the private [nifty-index-trade](https://github.com/AbhilashMunnur/nifty-index-trade) scanner.
+Public kicker for the [nifty-index-scan](https://github.com/AbhilashMunnur/nifty-index-scan) scanner.
 
-GitHub’s own `schedule` on a private repo often skips a whole morning. This
-workflow sleeps until each NSE 30-minute slot (09:30, 10:00, … 15:30, plus
-15:40 IST close) and then dispatches `nifty-scan`. After 15:40 it keeps
-waiting overnight so the next session does not depend on GitHub’s timer.
+GitHub’s own `schedule` often skips a whole morning. This workflow sleeps until
+each slot, then dispatches `nifty-scan`. Tuesday and Thursday are every 15
+minutes, including 15:10 and 15:15. Monday, Wednesday, and Friday are every 30
+minutes, with no 15:10 or 15:15. Every weekday also runs the 15:40 close.
+After 15:40 it keeps waiting overnight so the next session does not depend on
+GitHub’s timer.
