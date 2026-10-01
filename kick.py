@@ -135,6 +135,31 @@ def dispatch_nifty(repo: str) -> None:
     )
 
 
+def is_fut_slot(slot: datetime) -> bool:
+    """Futures alerts are every 15 minutes through 15:30. Not 15:10 or 15:40."""
+    if slot.hour == 15 and slot.minute in (10, 40):
+        return False
+    return slot.minute in (0, 15, 30, 45)
+
+
+def dispatch_fut(repo: str) -> None:
+    """Separate event. A failure here must not stop the option scan kick."""
+    try:
+        subprocess.check_call(
+            [
+                "gh",
+                "api",
+                "--method",
+                "POST",
+                f"repos/{repo}/dispatches",
+                "-f",
+                "event_type=nifty-fut-flow",
+            ]
+        )
+    except subprocess.CalledProcessError as exc:
+        print(f"Futures dispatch failed ({exc}). Option scan kick still stands.")
+
+
 def main() -> int:
     slot = next_slot()
     if slot is None:
@@ -158,6 +183,9 @@ def main() -> int:
     repo = target_repo()
     print(f"Dispatching nifty-scan on {repo} for {slot:%H:%M} IST")
     dispatch_nifty(repo)
+    if is_fut_slot(slot):
+        print(f"Dispatching nifty-fut-flow on {repo} for {slot:%H:%M} IST")
+        dispatch_fut(repo)
     print(f"Chaining public kicker after {slot:%H:%M} IST")
     chain()
     return 0
