@@ -3,7 +3,7 @@ name: Kick Nifty IST slots
 # Public repo so these waits stay on free public Actions minutes.
 # GitHub schedule here is only a morning starter; the job then self-chains
 # on the scan grid until 15:40 IST, then overnight until the next 09:30.
-# Tue/Thu every 15 min including 15:10 and 15:15. Mon/Wed/Fri every 30 min.
+# Every weekday every 15 min, plus 15:40. Tue/Thu also 15:10.
 on:
   workflow_dispatch:
   repository_dispatch:
