@@ -2,7 +2,7 @@
 """Wait for the next NSE slot on a public runner (free minutes), then kick the scan.
 
 Every trading day: 09:30–15:30 every 15 minutes, then the 15:40 close.
-Tuesday and Thursday also run 15:10.
+Tuesday and Thursday also run 15:10. 16:00 sends the futures day summary.
 
 Never stop at 15:40. After the last slot, hop in ≤5-hour sleeps until the next
 trading day's 09:30. GitHub jobs time out at 6 hours, so overnight is several
@@ -87,6 +87,7 @@ def iter_slots(day: datetime) -> list[datetime]:
             slots.append(day.replace(hour=15, minute=10, second=0, microsecond=0))
         cursor += timedelta(minutes=15)
     slots.append(day.replace(hour=15, minute=40, second=0, microsecond=0))
+    slots.append(day.replace(hour=16, minute=0, second=0, microsecond=0))
     return slots
 
 
@@ -131,6 +132,28 @@ def dispatch_nifty(repo: str) -> None:
             "event_type=nifty-scan",
         ]
     )
+
+
+def is_day_summary(slot: datetime) -> bool:
+    """4:00 PM IST whole-session futures summary. Not an option scan."""
+    return slot.hour == 16 and slot.minute == 0
+
+
+def dispatch_day(repo: str) -> None:
+    try:
+        subprocess.check_call(
+            [
+                "gh",
+                "api",
+                "--method",
+                "POST",
+                f"repos/{repo}/dispatches",
+                "-f",
+                "event_type=nifty-fut-day",
+            ]
+        )
+    except subprocess.CalledProcessError as exc:
+        print(f"Day summary dispatch failed ({exc}).")
 
 
 def is_fut_slot(slot: datetime) -> bool:
@@ -179,11 +202,15 @@ def main() -> int:
         time.sleep(wait)
 
     repo = target_repo()
-    print(f"Dispatching nifty-scan on {repo} for {slot:%H:%M} IST")
-    dispatch_nifty(repo)
-    if is_fut_slot(slot):
-        print(f"Dispatching nifty-fut-flow on {repo} for {slot:%H:%M} IST")
-        dispatch_fut(repo)
+    if is_day_summary(slot):
+        print(f"Dispatching nifty-fut-day on {repo} for {slot:%H:%M} IST")
+        dispatch_day(repo)
+    else:
+        print(f"Dispatching nifty-scan on {repo} for {slot:%H:%M} IST")
+        dispatch_nifty(repo)
+        if is_fut_slot(slot):
+            print(f"Dispatching nifty-fut-flow on {repo} for {slot:%H:%M} IST")
+            dispatch_fut(repo)
     print(f"Chaining public kicker after {slot:%H:%M} IST")
     chain()
     return 0

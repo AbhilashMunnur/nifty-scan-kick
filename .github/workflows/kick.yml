@@ -4,6 +4,7 @@ name: Kick Nifty IST slots
 # GitHub schedule here is only a morning starter; the job then self-chains
 # on the scan grid until 15:40 IST, then overnight until the next 09:30.
 # Every weekday every 15 min, plus 15:40. Tue/Thu also 15:10.
+# 16:00 IST sends the futures day summary.
 on:
   workflow_dispatch:
   repository_dispatch:
