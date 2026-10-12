@@ -54,14 +54,13 @@ def now_ist() -> datetime:
 
 
 def target_repo(now: datetime | None = None) -> str:
-    """Public copy until the private minute quota resets, then the old repo."""
-    current = now if now is not None else datetime.now(UTC)
-    if current.tzinfo is None:
-        current = current.replace(tzinfo=UTC)
-    else:
-        current = current.astimezone(UTC)
-    if current >= PRIVATE_RESUME:
-        return PRIVATE_REPO
+    """Public copy while private Actions jobs are refused.
+
+    nifty-index-trade fails before the job starts (billing / spending limit),
+    so a kick there never texts. Stay on the public scan repo until that is
+    lifted. Do not point both repos at the same slot.
+    """
+    del now
     return PUBLIC_REPO
 
 
