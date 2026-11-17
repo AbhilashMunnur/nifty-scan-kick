@@ -105,32 +105,55 @@ def next_slot(now: datetime | None = None) -> datetime | None:
     return None
 
 
+def _gh(args: list[str], what: str) -> None:
+    """Retry a GitHub call. One 500 must not end the rest of the session."""
+    delays = (0, 15, 30, 60, 60, 60)
+    last = ""
+    for attempt, delay in enumerate(delays, start=1):
+        if delay:
+            print(f"{what} failed. Retry {attempt} of {len(delays)} in {delay}s.")
+            time.sleep(delay)
+        try:
+            subprocess.check_call(["gh", *args])
+        except subprocess.CalledProcessError as exc:
+            last = str(exc)
+            print(f"{what} attempt {attempt} failed ({exc}).")
+            continue
+        if attempt > 1:
+            print(f"{what} succeeded on attempt {attempt}.")
+        return
+    raise subprocess.CalledProcessError(1, ["gh", *args], last)
+
+
 def chain() -> None:
-    subprocess.check_call(
+    _gh(
         [
-            "gh",
             "api",
             "--method",
             "POST",
             f"repos/{SELF}/actions/workflows/kick.yml/dispatches",
             "-f",
             "ref=main",
-        ]
+        ],
+        "Chaining the next kicker",
     )
 
 
 def dispatch_nifty(repo: str) -> None:
-    subprocess.check_call(
-        [
-            "gh",
-            "api",
-            "--method",
-            "POST",
-            f"repos/{repo}/dispatches",
-            "-f",
-            "event_type=nifty-scan",
-        ]
-    )
+    try:
+        _gh(
+            [
+                "api",
+                "--method",
+                "POST",
+                f"repos/{repo}/dispatches",
+                "-f",
+                "event_type=nifty-scan",
+            ],
+            "Nifty scan dispatch",
+        )
+    except subprocess.CalledProcessError as exc:
+        print(f"Nifty scan dispatch failed ({exc}). The next slot is still chained.")
 
 
 def is_day_summary(slot: datetime) -> bool:
