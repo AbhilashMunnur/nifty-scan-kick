@@ -126,17 +126,38 @@ def _gh(args: list[str], what: str) -> None:
 
 
 def chain() -> None:
-    _gh(
-        [
-            "api",
-            "--method",
-            "POST",
-            f"repos/{SELF}/actions/workflows/kick.yml/dispatches",
-            "-f",
-            "ref=main",
-        ],
-        "Chaining the next kicker",
-    )
+    """Hand the clock to the next job. Keep trying for 45 minutes.
+
+    On 17 Nov 2026 one HTTP 500 after the 10:00 scan ended the session.
+    """
+    deadline = time.monotonic() + 45 * 60
+    attempt = 0
+    while True:
+        attempt += 1
+        try:
+            subprocess.check_call(
+                [
+                    "gh",
+                    "api",
+                    "--method",
+                    "POST",
+                    f"repos/{SELF}/actions/workflows/kick.yml/dispatches",
+                    "-f",
+                    "ref=main",
+                ]
+            )
+        except subprocess.CalledProcessError as exc:
+            left = int(deadline - time.monotonic())
+            if left <= 0:
+                print(f"Chaining gave up after {attempt} attempts ({exc}).")
+                raise
+            delay = min(60, max(15, left))
+            print(f"Chaining attempt {attempt} failed ({exc}). Retrying in {delay}s.")
+            time.sleep(delay)
+            continue
+        if attempt > 1:
+            print(f"Chaining succeeded on attempt {attempt}.")
+        return
 
 
 def dispatch_nifty(repo: str) -> None:
